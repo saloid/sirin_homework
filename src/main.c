@@ -1,7 +1,22 @@
-#include <stdio.h>
+#include "daemonize/daemonize.h"
+#include <unistd.h>
+#include <stdlib.h>
+#include <syslog.h>
 
-int main(int argc, char *argv[]) {
-	printf("Hello World");
+int main()
+{
+	skeleton_daemon();
 
-return(0);
+	while (1)
+	{
+		//TODO: Insert daemon code here.
+		syslog(LOG_NOTICE, "First daemon started.");
+		sleep(20);
+		break;
+	}
+
+	syslog(LOG_NOTICE, "First daemon terminated.");
+	closelog();
+
+	return (EXIT_SUCCESS);
 }

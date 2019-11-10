@@ -9,9 +9,9 @@ LIB		:= lib
 LIBRARIES	:=
 
 ifeq ($(OS),Windows_NT)
-EXECUTABLE	:= main.exe
+EXECUTABLE	:= ip_sniff.exe
 else
-EXECUTABLE	:= main
+EXECUTABLE	:= ip_sniff
 endif
 
 SOURCEDIRS	:= $(shell find $(SRC) -type d)
