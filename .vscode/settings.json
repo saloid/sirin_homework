@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "daemonize.h": "c",
-        "socket.h": "c"
+        "socket.h": "c",
+        "pcap.h": "c",
+        "stdbool.h": "c"
     }
 }

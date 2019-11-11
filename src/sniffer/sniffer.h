@@ -12,17 +12,6 @@
 /* ethernet headers are always exactly 14 bytes [1] */
 #define SIZE_ETHERNET 14
 
-/* Ethernet addresses are 6 bytes */
-#define ETHER_ADDR_LEN 6
-
-/* Ethernet header */
-struct sniff_ethernet
-{
-    u_char ether_dhost[ETHER_ADDR_LEN]; /* destination host address */
-    u_char ether_shost[ETHER_ADDR_LEN]; /* source host address */
-    u_short ether_type;                 /* IP? ARP? RARP? etc */
-};
-
 /* IP header */
 struct sniff_ip
 {
@@ -41,8 +30,27 @@ struct sniff_ip
     struct in_addr ip_src, ip_dst; /* source and dest address */
 };
 #define IP_HL(ip) (((ip)->ip_vhl) & 0x0f)
-#define IP_V(ip) (((ip)->ip_vhl) >> 4)
 
-void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
+void setPacketCallback(void * callback);
+
+/*
+ * Begin sniffer service.
+ * Pass NULL if need to listen default iface
+ */
+void startSniffer(char * ifaceName);
+
+/*
+ *Stop sniffer service. Call on end or reconfigure
+ */
+void stopSniffer();
+
+char *ipToString(uint32_t ipAddr);
+
+void snifferLoop();
+
+/*
+ * Packet handler (callback)
+ */
+void gotPacket(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
 
 #endif  //_SNIFFER_H_F
