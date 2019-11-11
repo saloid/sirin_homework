@@ -52,8 +52,6 @@ int main(int argc, char **argv)
 	}
 	printf("\nEnter no. of packets you want to capture: ");
 	scanf("%d", &num_packets);
-	printf("\nWhich kind of packets you want to capture : ");
-	scanf("%s", filter_exp);
 	/* get network number and mask associated with capture device */
 	if (pcap_lookupnet(dev, &net, &mask, errbuf) == -1)
 	{
@@ -66,7 +64,6 @@ int main(int argc, char **argv)
 	/* print capture info */
 	printf("Device: %s\n", dev);
 	printf("Number of packets: %d\n", num_packets);
-	printf("Filter expression: %s\n", filter_exp);
 
 	/* open capture device */
 	handle = pcap_open_live(dev, SNAP_LEN, 1, 1000, errbuf);
@@ -83,9 +80,9 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-/*
+
 	//compile the filter expression
-	if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1)
+	if (pcap_compile(handle, &fp, "ip", 0, net) == -1)
 	{
 		fprintf(stderr, "Couldn't parse filter %s: %s\n",
 				filter_exp, pcap_geterr(handle));
@@ -99,7 +96,7 @@ int main(int argc, char **argv)
 				filter_exp, pcap_geterr(handle));
 		exit(EXIT_FAILURE);
 	}
-	*/
+	
 	/* now we can set our callback function */
 	pcap_loop(handle, num_packets, got_packet, NULL);
 
