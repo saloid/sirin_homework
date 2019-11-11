@@ -1,5 +1,5 @@
 CC		:= gcc
-CFLAGS	:= -Wall -Wextra -g
+CFLAGS	:= -Wall -Wextra -g -DMAX_IFACE_LENGTH=10
 
 BIN		:= bin
 SRC		:= src

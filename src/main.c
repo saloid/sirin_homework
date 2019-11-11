@@ -24,7 +24,7 @@ int main(int argc, char **argv)
 	return 0;
 }
 
-void newPacketCallback (uint32_t ipAddr)
+void newPacketCallback (uint32_t ipAddr, char * ifaceName)
 {
-	printf("From: %s\n", ipToString(ipAddr));
+	printf("IP: %s, iface: %s\n", ipToString(ipAddr), ifaceName);
 }

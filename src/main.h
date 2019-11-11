@@ -1,3 +1,3 @@
 #include <stdint.h>
 
-void newPacketCallback(uint32_t ipAddr);
+void newPacketCallback(uint32_t ipAddr, char *ifaceName);

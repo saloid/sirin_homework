@@ -12,13 +12,13 @@
 
 pcap_t *handle; // sniffer obj
 struct bpf_program fp; // filter obj
-void(*_packetCallback)(uint32_t ipAddr) = NULL;
+char currentIfaceName[MAX_IFACE_LENGTH];
+void (*_packetCallback)(uint32_t ipAddr, char *iface) = NULL;
 
 void startSniffer(char *ifaceName)
 {
     char *dev = NULL;              /* capture device name */
     char errbuf[PCAP_ERRBUF_SIZE]; /* error buffer */
-    
 
     if (ifaceName == NULL)
     {   //set OS defult iface
@@ -35,8 +35,15 @@ void startSniffer(char *ifaceName)
         dev = ifaceName;
     }
 
-    bpf_u_int32 mask;                                   // subnet mask
-    bpf_u_int32 net;                                    // ip
+	if (strlen(dev) >= sizeof(currentIfaceName))	//check iface length
+	{
+		fprintf(stderr, "Too long iface name (%s), max length = %d\n", dev, (MAX_IFACE_LENGTH-1));
+		exit(EXIT_FAILURE);
+	}
+	strncpy(currentIfaceName, dev, sizeof(currentIfaceName));
+
+	bpf_u_int32 mask;									// subnet mask
+	bpf_u_int32 net;                                    // gateway ip?
     if (pcap_lookupnet(dev, &net, &mask, errbuf) == -1) // get network number and mask associated with capture device
     {
         fprintf(stderr, "Couldn't get netmask for device %s: %s\n",
@@ -116,7 +123,7 @@ void gotPacket(u_char *args, const struct pcap_pkthdr *header, const u_char *pac
     }
 	if (_packetCallback != NULL)
 	{
-		_packetCallback((ip->ip_src).s_addr);
+		_packetCallback((ip->ip_src).s_addr, currentIfaceName);
 	}
 }
 
