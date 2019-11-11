@@ -17,22 +17,22 @@
  */
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 {
-
+    (void)args; //unused params
+    (void)header;        
+     
     static int count = 1; /* packet counter */
 
     /* declare pointers to packet headers */
-    const struct sniff_ethernet *ethernet; /* The ethernet header [1] */
+    //const struct sniff_ethernet *ethernet; /* The ethernet header [1] */
     const struct sniff_ip *ip;             /* The IP header */
 
     int size_ip;
-    int size_tcp;
-    int size_payload;
 
     printf("\nPacket number %d:\n", count);
     count++;
 
     /* define ethernet header */
-    ethernet = (struct sniff_ethernet *)(packet);
+    //ethernet = (struct sniff_ethernet *)(packet);
 
     /* define/compute ip header offset */
     ip = (struct sniff_ip *)(packet + SIZE_ETHERNET);
