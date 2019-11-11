@@ -3,6 +3,7 @@
         "daemonize.h": "c",
         "socket.h": "c",
         "pcap.h": "c",
-        "stdbool.h": "c"
+        "stdbool.h": "c",
+        "cstdlib": "c"
     }
 }

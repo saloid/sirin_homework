@@ -10,40 +10,40 @@
 #define IP_LIST_FILENAME FILES_PATH "ip_list"
 #define IFACE_LIST_FILENAME FILES_PATH "iface_list"
 
-typedef struct __attribute__((__packed__)) ipRecordStruct
+typedef struct __attribute__((__packed__))
 {
-    uint32_t ipAddr;
-    uint64_t recordsNum;
+	uint32_t ipAddr;
+	uint64_t recordsNum;
 } ipRecordStruct;
 
-typedef struct __attribute__((__packed__)) ifaceRecordStruct
+typedef struct __attribute__((__packed__))
 {
-    char ifaceName[MAX_IFACE_LENGTH];
-    uint64_t recordsNum;
+	char ifaceName[MAX_IFACE_LENGTH];
+	uint64_t recordsNum;
 } ifaceRecordStruct;
 
-typedef struct recordsBufferStruct
+typedef struct
 {
-    void *bufferPtr;
-    const size_t elementSize;
-    size_t bufferSize;
-    FILE *file;
+	void *bufferPtr;
+	const size_t elementSize;
+	size_t bufferSize;
+	FILE *file;
 } recordsBufferStruct;
 
 /*
- *  Returns true if file creation/read succesfull. False - if not.
+ *  Returns true if file creation/read succesfull.
  */
 bool initStorage();
 
 /*
  *  Increment packets num from this IP and iface 
  */
-bool addIpAddr(uint32_t ipAddr, char * iface);
+bool addIpAddr(uint32_t ipAddr, char *iface);
 
 /*
  *  Returns packets num from this iface.
  */
-uint64_t getIfaceStat(char * iface);
+uint64_t getIfaceStat(char *iface);
 
 /*
  *  Get received packets num from this IP
@@ -62,18 +62,9 @@ void deinitStorage();
 
 /*
  *  Delete all stored data
- *  Returns false if delete failed
  */
-bool clearData();
+void clearData();
 
-/*
- * False if buffer fill error
- */
-static bool safeReadFile(recordsBufferStruct *bufferStruct);
 
-/*
- * False if file not written
- */
-static bool safeWriteFile(recordsBufferStruct *bufferStruct);
 
 #endif //_STORAGE_H_

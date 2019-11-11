@@ -1,121 +1,256 @@
 #include "storage.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>   //for strncmp, strncpy
+#include <sys/stat.h> //for mkdir
+#include <errno.h>	//strerror
+//#include <sys/types.h>	//modes for mkdir
 
-recordsBufferStruct ipBuffer = {.bufferPtr = NULL,
-                                .elementSize = sizeof(ipRecordStruct),
-                                .bufferSize = 0,
-                                .file = NULL};
+//static objects
+/*
+ * False if buffer fill error
+ */
+static bool safeReadFile(recordsBufferStruct *bufferStruct);
 
-recordsBufferStruct ifaceBuffer = {.bufferPtr = NULL,
-                                   .elementSize = sizeof(ifaceRecordStruct),
-                                   .bufferSize = 0,
-                                   .file = NULL};
+/*
+ * False if file not written
+ */
+static bool safeWriteFile(recordsBufferStruct *bufferStruct);
+
+static ipRecordStruct *getIpStructPtr(uint32_t ipAddr);
+
+static const ipRecordStruct *lastSearchIpPointer = NULL;
+
+/*
+ *	For bsearch
+ */
+static int compareIp(const void *searchkey, const void *cmpelem);
+static bool insertIpToBuffer(uint32_t ipAddr);
+
+static recordsBufferStruct ipList = {.bufferPtr = NULL,
+									 .elementSize = sizeof(ipRecordStruct),
+									 .bufferSize = 0,
+									 .file = NULL};
+
+static recordsBufferStruct ifaceList = {.bufferPtr = NULL,
+										.elementSize = sizeof(ifaceRecordStruct),
+										.bufferSize = 0,
+										.file = NULL};
 
 static bool safeReadFile(recordsBufferStruct *bufferStruct)
 {
-    long fileSize;
+	fseek(bufferStruct->file, 0L, SEEK_END);
+	long fileSize = ftell(bufferStruct->file);
+	rewind(bufferStruct->file);
+	if (fileSize % (bufferStruct->elementSize) == 0)
+	{
+		bufferStruct->bufferPtr = malloc(fileSize);
+		if (bufferStruct->bufferPtr == NULL)
+		{
+			printf("malloc error - critical\n");
+			return (false);
+		}
+		bufferStruct->bufferSize = fileSize;
+		if (fread(bufferStruct->bufferPtr, fileSize, 1, bufferStruct->file) != 1)
+		{
+			printf("file read error(empty) - file ignored\n");
+		}
+	}
+	else
+	{
+		printf("Wrong file size (%ld) - file ignored\n", fileSize);
+	}
 
-    fseek(bufferStruct->file, 0L, SEEK_END);
-    fileSize = ftell(bufferStruct->file);
-    rewind(bufferStruct->file);
-    if (fileSize % (bufferStruct->elementSize) == 0)
-    {
-        bufferStruct->bufferPtr = malloc(fileSize);
-        if (bufferStruct->bufferPtr == NULL)
-        {
-            printf("malloc error - critical");
-            return (false);
-        }
-        bufferStruct->bufferSize = fileSize;
-        if (fread(bufferStruct->bufferPtr, fileSize, 1, bufferStruct->file) != 1)
-        {
-            printf("file read error - file ignored\n");
-        }
-    }
-    else
-    {
-        printf("Wrong file size (%ld) - file ignored\n", fileSize);
-    }
+	return (true);
 }
 
 static bool safeWriteFile(recordsBufferStruct *bufferStruct)
 {
-    size_t writtenSize;
+	size_t writtenSize;
 
-    writtenSize = fwrite(bufferStruct->bufferPtr, bufferStruct->bufferSize, 1, bufferStruct->file);
-    if (writtenSize != bufferStruct->bufferSize)
-    {
-        printf("File save error");
-        return (false);
-    }
-    //todo: write buffer to file
+	writtenSize = fwrite(bufferStruct->bufferPtr, bufferStruct->bufferSize, 1, bufferStruct->file);
+	if (writtenSize != bufferStruct->bufferSize || fflush(bufferStruct->file) != 0)
+	{
+		printf("File save error\n");
+		return (false);
+	}
+	//todo: write buffer to file
 
-    fclose(bufferStruct->file);
-    free(bufferStruct->bufferPtr);
-    bufferStruct->bufferSize = 0;
+	fclose(bufferStruct->file);
+	free(bufferStruct->bufferPtr);
+	bufferStruct->bufferSize = 0;
 
-    return (true);
+	return (true);
 }
 
 bool initStorage()
 {
-    ipBuffer.file = fopen(IP_LIST_FILENAME, "wb+");
-    ifaceBuffer.file = fopen(IFACE_LIST_FILENAME, "wb+");
+	mkdir(FILES_PATH, 0777);
+	ipList.file = fopen(IP_LIST_FILENAME, "wb+");
+	ifaceList.file = fopen(IFACE_LIST_FILENAME, "wb+");
 
-    if (ipBuffer.file == NULL || ifaceBuffer.file == NULL)
-    {
-        printf("file open/creation error");
-        return (false);
-    }
+	if (ipList.file == NULL || ifaceList.file == NULL)
+	{
+		printf("file open/creation error: %s\n", strerror(errno));
+		return (false);
+	}
 
-    if (safeReadFile(&ipBuffer) == false ||
-        safeReadFile(&ifaceBuffer) == false)
-    {
-        printf("read file error");
-        return (false);
-    }
+	if (safeReadFile(&ipList) == false ||
+		safeReadFile(&ifaceList) == false)
+	{
+		printf("read file error\n");
+		return (false);
+	}
 
-    return (true);
+	return (true);
 }
 
 void deinitStorage()
 {
-    safeWriteFile(&ipBuffer);
-    safeWriteFile(&ifaceBuffer);
+	safeWriteFile(&ipList);
+	safeWriteFile(&ifaceList);
 }
 
-bool clearData()
+void clearData()
 {
-    ipBuffer.bufferPtr = realloc(ipBuffer.bufferPtr, 0);
-    ipBuffer.bufferSize = 0;
-    ifaceBuffer.bufferPtr = realloc(ifaceBuffer.bufferPtr, 0);
-    ifaceBuffer.bufferSize = 0;
+	ipList.bufferPtr = realloc(ipList.bufferPtr, 0);
+	ipList.bufferSize = 0;
+	ifaceList.bufferPtr = realloc(ifaceList.bufferPtr, 0);
+	ifaceList.bufferSize = 0;
+}
+
+uint64_t getIfaceStat(char *iface)
+{
+	uint32_t ifacesNum = ifaceList.bufferSize / sizeof(ifaceRecordStruct);
+	ifaceRecordStruct *currentIfaceRecord = ifaceList.bufferPtr;
+
+	for (uint32_t i = 0; i < ifacesNum; i++)
+	{
+		if (strncmp(currentIfaceRecord[i].ifaceName, iface, MAX_IFACE_LENGTH) == 0)
+		{
+			return (currentIfaceRecord[i].recordsNum);
+		}
+	}
+
+	return (0); //not found
 }
 
 bool addIpAddr(uint32_t ipAddr, char *iface)
 {
+	//add ip addr
+	ipRecordStruct *foundIpStruct;
 
-    /*
-    ipBuffer.bufferPtr = realloc(ipBuffer.bufferPtr, (ipBuffer.bufferSize + sizeof(ipRecordStruct)));
-    if (ipBuffer.bufferPtr == 0)
-    {
-        printf("New ip address add error - all data lost");
-        return (false);
-    }
-    */
+	foundIpStruct = getIpStructPtr(ipAddr);
+	if (foundIpStruct == NULL)
+	{
+		if (insertIpToBuffer(ipAddr) == false)
+		{
+			printf("adding new ip addr failed - all data lost\n");
+
+			return (false);
+		}
+	}
+	else
+	{
+		foundIpStruct->recordsNum++;
+	}
+
+	//add iface
+	uint32_t ifacesNum = ifaceList.bufferSize / sizeof(ifaceRecordStruct);
+	ifaceRecordStruct *currentIfaceRecord = ifaceList.bufferPtr;
+	for (uint32_t i = 0; i < ifacesNum; i++)
+	{
+		if (strncmp(currentIfaceRecord[i].ifaceName, iface, MAX_IFACE_LENGTH) == 0)
+		{
+			currentIfaceRecord[i].recordsNum++;
+			return (true);
+		}
+	}
+
+	ifaceList.bufferPtr = realloc(ifaceList.bufferPtr, (ifaceList.bufferSize + sizeof(ifaceRecordStruct)));
+
+	if (ifaceList.bufferPtr == NULL)
+	{
+		printf("New iface add error - all data lost\n");
+		return (false);
+	}
+	currentIfaceRecord = ifaceList.bufferPtr + ifaceList.bufferSize;
+	strncpy(currentIfaceRecord->ifaceName, iface, MAX_IFACE_LENGTH);
+	currentIfaceRecord->recordsNum = 1;
+	ifaceList.bufferSize += sizeof(ifaceRecordStruct);
+
+	return (true);
+}
+
+uint64_t getPacketsNum(uint32_t ipAddr)
+{
+	ipRecordStruct *foundIpStruct = getIpStructPtr(ipAddr);
+	if (foundIpStruct == NULL)
+	{
+		return (0);
+	}
+	else
+	{
+		return (foundIpStruct->recordsNum);
+	}
+}
+
+static ipRecordStruct *getIpStructPtr(uint32_t ipAddr)
+{
+	if (ipList.bufferPtr == NULL)
+	{
+		return (NULL);
+	}
+	ipRecordStruct *foundPointer;
+
+	foundPointer = bsearch(&ipAddr, ipList.bufferPtr, ipList.bufferSize / sizeof(ipRecordStruct), sizeof(ipRecordStruct), compareIp);
+
+	return (foundPointer);
 }
 
 uint64_t getTotalPacketsNum()
 {
-    uint32_t ifacesNum = ifaceBuffer.bufferSize / sizeof(ifaceRecordStruct);
-    ifaceRecordStruct *currentIfaceRecord = ifaceBuffer.bufferPtr;
-    uint64_t totalPacketsNum = 0;
-    
-    for (uint32_t i = 0; i < ifacesNum; i++)
-    {
-        totalPacketsNum += currentIfaceRecord[i].recordsNum;
-    }
+	uint32_t ifacesNum = ifaceList.bufferSize / sizeof(ifaceRecordStruct);
+	ifaceRecordStruct *currentIfaceRecord = ifaceList.bufferPtr;
+	uint64_t totalPacketsNum = 0;
 
-    return (totalPacketsNum);
+	for (uint32_t i = 0; i < ifacesNum; i++)
+	{
+		totalPacketsNum += currentIfaceRecord[i].recordsNum;
+	}
+
+	return (totalPacketsNum);
+}
+
+static int compareIp(const void *searchkey, const void *cmpelem)
+{
+	lastSearchIpPointer = cmpelem;
+	return (*(uint32_t *)searchkey - *(uint32_t *)cmpelem);
+}
+
+static bool insertIpToBuffer(uint32_t ipAddr)
+{
+	uint32_t elementNum = 0;
+	if (ipList.bufferPtr != NULL && lastSearchIpPointer != NULL)
+	{
+		elementNum = ((void *)lastSearchIpPointer - ipList.bufferPtr) / sizeof(ipRecordStruct);
+		if (compareIp(&ipAddr, lastSearchIpPointer) > 0)
+		{
+			elementNum++;
+		}
+	}
+	ipList.bufferPtr = realloc(ipList.bufferPtr, (ipList.bufferSize + sizeof(ipRecordStruct)));
+	if (ipList.bufferPtr == NULL)
+	{
+		printf("New ip address add error - all data lost\n");
+		return (false);
+	}
+	memmove(&((ipRecordStruct *)ipList.bufferPtr)[elementNum + 1], //should be safe, no need NULL check
+			&((ipRecordStruct *)ipList.bufferPtr)[elementNum],
+			ipList.bufferSize - elementNum * sizeof(ipRecordStruct));
+	((ipRecordStruct *)ipList.bufferPtr)[elementNum].ipAddr = ipAddr;
+	((ipRecordStruct *)ipList.bufferPtr)[elementNum].recordsNum = 1;
+	ipList.bufferSize += sizeof(ipRecordStruct);
+
+	return (true);
 }

@@ -50,7 +50,8 @@ void startSniffer(char *ifaceName)
                 dev, errbuf);
         net = 0;
         mask = 0;
-    }
+		exit(EXIT_FAILURE);
+	}
 
     // print capture info
     printf("Device: %s\n", dev);
@@ -92,6 +93,7 @@ void startSniffer(char *ifaceName)
 	if (pcap_setnonblock(handle, 1, errbuf))
 	{
 		fprintf(stderr, "Non-block set error: %s\n", errbuf);
+		exit(EXIT_FAILURE);
 	}    
 }
 
@@ -113,7 +115,7 @@ void gotPacket(u_char *args, const struct pcap_pkthdr *header, const u_char *pac
 	const struct sniff_ip *ip; /* The IP header */
 	int size_ip;
 
-    /* define/compute ip header offset */
+	/* define/compute ip header offset */
     ip = (struct sniff_ip *)(packet + SIZE_ETHERNET);
     size_ip = IP_HL(ip) * 4;
     if (size_ip < 20)
