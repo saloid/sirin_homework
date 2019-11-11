@@ -1,4 +1,5 @@
 #include "main.h"
+#include "storage/storage.h"
 #include "sniffer/sniffer.h"
 #include <stdbool.h>
 

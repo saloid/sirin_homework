@@ -1,3 +1,4 @@
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -56,5 +57,5 @@ void skeleton_daemon()
     }
 
     /* Open the log file */
-    openlog("ip_sniff", LOG_PID, LOG_DAEMON);
+    openlog(DAEMON_NAME, LOG_PID, LOG_DAEMON);
 }

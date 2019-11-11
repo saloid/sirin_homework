@@ -1,10 +1,8 @@
 CC		:= gcc
-CFLAGS	:= -Wall -Wextra -g -DMAX_IFACE_LENGTH=10
+CFLAGS	:= -Wall -Wextra -g -Isrc
 
 BIN		:= bin
 SRC		:= src
-INCLUDE	:= include
-LIB		:= lib
 
 LIBRARIES	:= -lpcap
 

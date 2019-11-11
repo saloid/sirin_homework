@@ -1,6 +1,7 @@
 #ifndef _SNIFFER_H_
 #define _SNIFFER_H_
 
+#include "config.h"
 #include <ctype.h>
 #include <sys/types.h>  //u_char, u_short, etc.
 #include <netinet/in.h> //in_addr struct
