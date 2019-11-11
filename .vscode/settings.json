@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "daemonize.h": "c"
+        "daemonize.h": "c",
+        "socket.h": "c"
     }
 }

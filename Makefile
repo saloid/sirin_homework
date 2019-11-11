@@ -6,7 +6,7 @@ SRC		:= src
 INCLUDE	:= include
 LIB		:= lib
 
-LIBRARIES	:=
+LIBRARIES	:= -lpcap
 
 ifeq ($(OS),Windows_NT)
 EXECUTABLE	:= ip_sniff.exe
@@ -34,7 +34,7 @@ clean:
 
 
 run: all
-	./$(BIN)/$(EXECUTABLE)
+	sudo ./$(BIN)/$(EXECUTABLE)
 
 $(BIN)/$(EXECUTABLE): $(OBJECTS)
 	$(CC) $(CFLAGS) $(CINCLUDES) $(CLIBS) $^ -o $@ $(LIBRARIES)

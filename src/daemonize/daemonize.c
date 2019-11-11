@@ -56,5 +56,5 @@ void skeleton_daemon()
     }
 
     /* Open the log file */
-    openlog("firstdaemon", LOG_PID, LOG_DAEMON);
+    openlog("ip_sniff", LOG_PID, LOG_DAEMON);
 }

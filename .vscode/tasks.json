@@ -55,6 +55,9 @@
             "args": [
                 "-c",
                 "'make clean'"
+            ],
+            "problemMatcher": [
+                "$gcc"
             ]
         }
     ]
