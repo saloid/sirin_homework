@@ -341,7 +341,6 @@ void newPacketCallback(uint32_t ipAddr, char *ifaceName)
 	}
 }
 
-//callback
 void signalHandlerCallback(int sig)
 {
 	switch (sig)
