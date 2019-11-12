@@ -69,10 +69,10 @@ static bool safeWriteFile(recordsBufferStruct *bufferStruct)
 {
 	size_t writtenSize;
 
-	writtenSize = fwrite(bufferStruct->bufferPtr, bufferStruct->bufferSize, 1, bufferStruct->file);
-	if (writtenSize != bufferStruct->bufferSize || fflush(bufferStruct->file) != 0)
+	writtenSize = fwrite(bufferStruct->bufferPtr, 1, bufferStruct->bufferSize, bufferStruct->file);
+	if ((writtenSize != bufferStruct->bufferSize) || fflush(bufferStruct->file) != 0)
 	{
-		syslog(LOG_ERR, "File save error: %s\n", strerror(errno));
+		syslog(LOG_ERR, "File save error (written %lu, expected %lu) error: %s\n", writtenSize, bufferStruct->bufferSize, strerror(errno));
 		return (false);
 	}
 	//todo: write buffer to file
@@ -87,8 +87,16 @@ static bool safeWriteFile(recordsBufferStruct *bufferStruct)
 bool initStorage()
 {
 	mkdir(FILES_PATH, 0777);
-	ipList.file = fopen(IP_LIST_FILENAME, "wb+");
-	ifaceList.file = fopen(IFACE_LIST_FILENAME, "wb+");
+	ipList.file = fopen(IP_LIST_FILENAME, "rb+");
+	if (ipList.file == NULL)
+	{
+		ipList.file = fopen(IP_LIST_FILENAME, "wb+");
+	}
+	ifaceList.file = fopen(IFACE_LIST_FILENAME, "rb+");
+	if (ifaceList.file == NULL)
+	{
+		ifaceList.file = fopen(IFACE_LIST_FILENAME, "wb+");
+	}
 
 	if (ipList.file == NULL || ifaceList.file == NULL)
 	{
@@ -100,6 +108,13 @@ bool initStorage()
 		safeReadFile(&ifaceList) == false)
 	{
 		syslog(LOG_ERR, "read file error\n");
+		return (false);
+	}
+	ipList.file = freopen(IP_LIST_FILENAME, "wb", ipList.file);
+	ifaceList.file = freopen(IFACE_LIST_FILENAME, "wb", ifaceList.file);
+	if (ipList.file == NULL || ifaceList.file == NULL)
+	{
+		syslog(LOG_ERR, "file reopen error: %s\n", strerror(errno));
 		return (false);
 	}
 
