@@ -49,35 +49,27 @@ void skeleton_daemon()
 	/* or another appropriated directory */
 	chdir("/");
 
-	printf("checking lock file %s\n", LOCKFILE);
-	int lockFile = open(LOCKFILE, O_RDWR | O_CREAT, 0640);
-	if (lockFile < 0)
-	{
-		printf("lock file open error\n");
-		exit(EXIT_FAILURE); /* can not open */
-	}
-	if (lockf(lockFile, F_TLOCK, 0) < 0)
-	{
-		printf("lock file locked - exiting\n");
-		exit(EXIT_SUCCESS);
-	}
-	printf("file not locked\n");
-	char str[10];
-	sprintf(str, "%d\n", getpid());
-	write(lockFile, str, strlen(str)); /* record pid to lockfile */
-	printf("check again\n");
-	if (lockf(lockFile, F_TLOCK, 0) < 0)
-	{
-		printf("lock file locked - exiting\n");
-		exit(EXIT_SUCCESS);
-	}
-
 	/* Close all open file descriptors */
 	int x;
 	for (x = sysconf(_SC_OPEN_MAX); x >= 0; x--)
 	{
 		close(x);
 	}
+
+	int lockFile = open(LOCKFILE, O_RDWR | O_CREAT, 0640);
+	if (lockFile < 0)
+	{
+		exit(EXIT_FAILURE); /* can not open */
+	}
+	if (lockf(lockFile, F_TLOCK, 0) < 0)
+	{
+		exit(EXIT_SUCCESS);
+	}
+	char str[10];
+	sprintf(str, "%d\n", getpid());
+	write(lockFile, str, strlen(str)); /* record pid to lockfile */
+
+	
 	signal(SIGCHLD, SIG_IGN); /* ignore child */
 	signal(SIGTSTP, SIG_IGN); /* ignore tty signals */
 	signal(SIGTTOU, SIG_IGN);
