@@ -19,16 +19,18 @@ SOURCES		:= $(wildcard $(patsubst %,%/*.c, $(SOURCEDIRS)))
 OBJECTS		:= $(SOURCES:.c=.o)
 
 
-all: $(BIN)/$(EXECUTABLE)
+all: $(EXECUTABLE)
+
 
 .PHONY: clean
 clean:
-	-$(RM) $(BIN)/$(EXECUTABLE)
+	-$(RM) $(EXECUTABLE)
 	-$(RM) $(OBJECTS)
 
 
 run: all
 	sudo ./$(BIN)/$(EXECUTABLE)
 
-$(BIN)/$(EXECUTABLE): $(OBJECTS)
+
+$(EXECUTABLE): $(OBJECTS)
 	$(CC) $(CFLAGS) $^ -o $@ $(LIBRARIES)
