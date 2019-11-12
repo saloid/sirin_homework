@@ -1,9 +1,11 @@
 #include "main.h"
+#include "daemonize/daemonize.h"
 #include "storage/storage.h"
 #include "sniffer/sniffer.h"
 #include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <syslog.h>
 
 volatile bool errorDetected = false;
 
@@ -12,6 +14,9 @@ int main(int argc, char **argv)
 	(void)argc; //unused vars, supress warnings
 	(void)argv;
 
+	skeleton_daemon();
+
+	syslog(LOG_NOTICE, "daemon started\n");
 	if (!initStorage())
 	{
 		exit(EXIT_FAILURE);
@@ -19,7 +24,7 @@ int main(int argc, char **argv)
 
 	setPacketCallback(newPacketCallback);
 	startSniffer(NULL);
-	printf("init finished\n");
+	syslog(LOG_NOTICE, "init finished\n");
 
 	while (!errorDetected)
 	{
@@ -30,18 +35,17 @@ int main(int argc, char **argv)
 	stopSniffer();
 	deinitStorage();
 
-	printf("\nProg end.\n");
+	syslog(LOG_NOTICE, "init finished\n");
 
 	return 0;
 }
 
 void newPacketCallback(uint32_t ipAddr, char *ifaceName)
 {
-	printf("IP: %s, iface: %s\n", ipToString(ipAddr), ifaceName);
+	syslog(LOG_DEBUG, "IP: %s, iface: %s\n", ipToString(ipAddr), ifaceName);
 	if (addIpAddr(ipAddr, ifaceName) == false)
 	{
-		printf("add ip addr failed\n");
+		syslog(LOG_ERR, "add ip addr failed\n");
 		errorDetected = true;
-		//exit(EXIT_FAILURE);
 	}
 }

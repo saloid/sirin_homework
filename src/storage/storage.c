@@ -4,6 +4,7 @@
 #include <string.h>   //for strncmp, strncpy
 #include <sys/stat.h> //for mkdir
 #include <errno.h>	//strerror
+#include <syslog.h>
 //#include <sys/types.h>	//modes for mkdir
 
 //static objects
@@ -47,18 +48,18 @@ static bool safeReadFile(recordsBufferStruct *bufferStruct)
 		bufferStruct->bufferPtr = malloc(fileSize);
 		if (bufferStruct->bufferPtr == NULL)
 		{
-			printf("malloc error - critical\n");
+			syslog(LOG_ERR, "malloc error\n");
 			return (false);
 		}
 		bufferStruct->bufferSize = fileSize;
 		if (fread(bufferStruct->bufferPtr, fileSize, 1, bufferStruct->file) != 1)
 		{
-			printf("file read error(empty) - file ignored\n");
+			syslog(LOG_WARNING, "file read error (maybe empty) - file ignored\n");
 		}
 	}
 	else
 	{
-		printf("Wrong file size (%ld) - file ignored\n", fileSize);
+		syslog(LOG_WARNING, "Wrong file size (%ld) - file ignored\n", fileSize);
 	}
 
 	return (true);
@@ -71,7 +72,7 @@ static bool safeWriteFile(recordsBufferStruct *bufferStruct)
 	writtenSize = fwrite(bufferStruct->bufferPtr, bufferStruct->bufferSize, 1, bufferStruct->file);
 	if (writtenSize != bufferStruct->bufferSize || fflush(bufferStruct->file) != 0)
 	{
-		printf("File save error\n");
+		syslog(LOG_ERR, "File save error\n");
 		return (false);
 	}
 	//todo: write buffer to file
@@ -91,14 +92,14 @@ bool initStorage()
 
 	if (ipList.file == NULL || ifaceList.file == NULL)
 	{
-		printf("file open/creation error: %s\n", strerror(errno));
+		syslog(LOG_ERR, "file open/creation error: %s\n", strerror(errno));
 		return (false);
 	}
 
 	if (safeReadFile(&ipList) == false ||
 		safeReadFile(&ifaceList) == false)
 	{
-		printf("read file error\n");
+		syslog(LOG_ERR, "read file error\n");
 		return (false);
 	}
 
@@ -145,7 +146,7 @@ bool addIpAddr(uint32_t ipAddr, char *iface)
 	{
 		if (insertIpToBuffer(ipAddr) == false)
 		{
-			printf("adding new ip addr failed - all data lost\n");
+			syslog(LOG_ERR, "adding new ip addr failed - all data lost\n");
 
 			return (false);
 		}
@@ -171,7 +172,7 @@ bool addIpAddr(uint32_t ipAddr, char *iface)
 
 	if (ifaceList.bufferPtr == NULL)
 	{
-		printf("New iface add error - all data lost\n");
+		syslog(LOG_ERR, "New iface add error - all data lost\n");
 		return (false);
 	}
 	currentIfaceRecord = ifaceList.bufferPtr + ifaceList.bufferSize;
@@ -242,7 +243,7 @@ static bool insertIpToBuffer(uint32_t ipAddr)
 	ipList.bufferPtr = realloc(ipList.bufferPtr, (ipList.bufferSize + sizeof(ipRecordStruct)));
 	if (ipList.bufferPtr == NULL)
 	{
-		printf("New ip address add error - all data lost\n");
+		syslog(LOG_ERR, "New ip address add error - all data lost\n");
 		return (false);
 	}
 	memmove(&((ipRecordStruct *)ipList.bufferPtr)[elementNum + 1], //should be safe, no need NULL check
