@@ -27,7 +27,7 @@ int main(int argc, char **argv)
 	else
 	{
 		passCommandToDaemon(argc, argv);
-		printf("Command sent, terminating main process\n");
+		//printf("Command sent, terminating main process\n");
 	}
 
 	return (0);
@@ -57,27 +57,63 @@ void passCommandToDaemon(int argc, char **argv)
 {
 	if (argc > 1)
 	{
+		char buffer[BUFFER_SIZE];
+		buffer[0] = NOPE;
+
 		connectToSocket();
 		if (startsWith(argv[1], "start") || startsWith(argv[1], ""))
 		{
-			//start sniffer
+			buffer[0] = START;
 		}
 		else if (startsWith(argv[1], "stop"))
 		{
+			buffer[0] = STOP;
 		}
 		else if (startsWith(argv[1], "show") && argc == 4) //show [ip] count
 		{
+			printf("show cmd processing\n");
+			if (strcmp("count", argv[3]) == 0)
+			{
+				buffer[0] = SHOW;
+				uint32_t ipToShow = stringToIp(argv[2]);
+				memcpy(&buffer[1], &ipToShow, sizeof(ipToShow));
+			}
+			else
+			{
+				printf("wrong command\n");
+			}
 		}
-		else if (startsWith(argv[1], "select") && argc == 4) //select iface [iface]
+		else if (startsWith(argv[1], "select") && argc == 4 && startsWith(argv[2], "iface")) //select iface [iface]
 		{
+			buffer[0] = SELECT;
+			strncpy(&buffer[1], argv[3], BUFFER_SIZE - 2);
 		}
 		else if (startsWith(argv[1], "stat")) //stat [iface]
 		{
+			buffer[0] = STAT;
+			if (argc > 2)
+			{
+				strncpy(&buffer[1], argv[2], BUFFER_SIZE - 2);
+			}
+			else
+			{
+				buffer[1] = '\0';
+			}
+		}
+		else if (startsWith(argv[1], "erase")) //erase
+		{
+			buffer[0] = ERASE;
 		}
 		else
 		{
 			printHelp();
 		}
+
+		guard(write(clientSocket, buffer, BUFFER_SIZE), "write");
+		//printf("data writen, waiting answer\n");
+		guard(read(clientSocket, buffer, BUFFER_SIZE), "read");
+		buffer[BUFFER_SIZE - 1] = '\0'; //to be sure
+		printf("%s\n", buffer);
 		close(clientSocket);
 	}
 	else
@@ -89,9 +125,8 @@ void passCommandToDaemon(int argc, char **argv)
 void connectToSocket()
 {
 	struct sockaddr_un name;
-	char buffer[BUFFER_SIZE];
 
-	printf("Connecting to daemon\n");
+	//printf("Connecting to daemon\n");
 
 	clientSocket = guard(socket(AF_UNIX, SOCK_SEQPACKET, 0), "socket");
 
@@ -101,21 +136,10 @@ void connectToSocket()
 	strncpy(name.sun_path, SOCKET_NAME, sizeof(name.sun_path) - 1);
 	while (connect(clientSocket, (const struct sockaddr *)&name, sizeof(name)) < 0)
 	{
-		printf("Server offline, trying again...\n");
-		sleep(1);
+		//printf("Server offline, trying again...\n");
+		usleep(50000);
 	}
-	printf("connected to server\n");
-
-	buffer[0] = 42;
-	strcpy(&buffer[1], "hello");
-	guard(write(clientSocket, buffer, BUFFER_SIZE), "write");
-
-	printf("data writen, waiting answer\n");
-
-	guard(read(clientSocket, buffer, BUFFER_SIZE), "read");
-
-	buffer[BUFFER_SIZE - 1] = '\0';
-	printf("Answer = %s\n", buffer);
+	//printf("connected to server\n");
 }
 
 void printHelp()
@@ -127,6 +151,7 @@ void printHelp()
 	printf("show [ip] count      - print number of packets received from ip address\n");
 	printf("select iface [iface] - select interface for sniffing eth0, wlan0, ethN, wlanN...\n");
 	printf("stat [iface]         - show all collected statistics for particular interface, if iface omitted - for all interfaces.\n");
+	printf("erase                - clear all stores data\n");
 	printf("--help               - show this text\n");
 	printf("---------------------------------------------------------------------------------------------------------------------\n");
 }
@@ -156,16 +181,16 @@ void doSomeDaemonStuff()
 		exit(EXIT_FAILURE);
 	}
 
-	startSniffer(NULL);
+	//startSniffer(NULL);
 	createSocket();
 
 	syslog(LOG_NOTICE, "daemon inited\n");
 
 	while (!needStop)
 	{
-		processSocket();
 		snifferLoop();
-		sleep(1);
+		processSocket();
+		usleep(50000);
 	}
 
 	close(daemonSocket);
@@ -216,7 +241,7 @@ void processSocket()
 		{
 			if (errno == EWOULDBLOCK)
 			{
-				return; //ok, try in next iteration
+				return; //ok, try next time
 			}
 			else
 			{
@@ -229,7 +254,8 @@ void processSocket()
 			buffer[BUFFER_SIZE - 1] = '\0';
 			syslog(LOG_NOTICE, "New input data: %d, %s", buffer[0], &buffer[1]);
 
-			sprintf(buffer, "%lu", getTotalPacketsNum());
+			processDaemonCommand(buffer);
+			//sprintf(buffer, "%lu", getTotalPacketsNum());
 
 			if (write(dataSocket, buffer, BUFFER_SIZE) < 0)
 			{
@@ -239,6 +265,69 @@ void processSocket()
 			close(dataSocket);
 			dataSocket = -1;
 		}
+	}
+}
+
+void processDaemonCommand(char *buffer)
+{
+	switch (buffer[0])
+	{
+	case START:
+		startSniffer(NULL);
+		sprintf(buffer, "daemon started");
+		break;
+
+	case STOP:
+		sprintf(buffer, "daemon stoped");
+		needStop = true;
+		break;
+
+	case SHOW:
+	{
+		uint32_t ipToShow;
+
+		memcpy(&ipToShow, &buffer[1], sizeof(ipToShow));
+		uint64_t packetsNum = getPacketsNum(ipToShow);
+		sprintf(buffer, "num: %lu", packetsNum);
+	}
+	break;
+
+	case SELECT:
+		stopSniffer();
+		startSniffer(&buffer[1]);
+		sprintf(buffer, "iface changed");
+		break;
+
+	case STAT:
+	{
+		uint64_t packetsNum;
+
+		if (buffer[1] == '\0')
+		{
+			packetsNum = getTotalPacketsNum();
+		}
+		else
+		{
+			packetsNum = getIfaceStat(&buffer[1]);
+		}
+		sprintf(buffer, "packets count: %lu", packetsNum);
+	}
+	break;
+
+	case ERASE:
+		clearData();
+		needStop = true;
+		sprintf(buffer, "data deleted, daemon stoped");
+		break;
+
+	case NOPE:
+		syslog(LOG_NOTICE, "NOPE command received\n");
+		break;
+
+	default:
+		syslog(LOG_WARNING, "Unknown command: %d\n", buffer[0]);
+		sprintf(buffer, "unkknown command");
+		break;
 	}
 }
 
