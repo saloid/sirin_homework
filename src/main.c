@@ -15,9 +15,11 @@
 #include <fcntl.h> //non blocking socket
 #include <errno.h>
 
+bool thisIsDaemon;
+
 int main(int argc, char **argv)
 {
-	bool thisIsDaemon = createDaemon();
+	thisIsDaemon = createDaemon();
 	if (thisIsDaemon)
 	{
 		doSomeDaemonStuff();
@@ -31,10 +33,31 @@ int main(int argc, char **argv)
 	return (0);
 }
 
+int guard(int n, char *err)
+{
+	if (n == -1)
+	{
+		if (thisIsDaemon)
+		{
+			syslog(LOG_ERR, "socket error: %s (%s)\n", err, strerror(errno));
+		}
+		else
+		{
+			perror(err);
+		}
+		exit(EXIT_FAILURE);
+	}
+	return (n);
+}
+
+//main proc part
+int clientSocket;
+
 void passCommandToDaemon(int argc, char **argv)
 {
 	if (argc > 1)
 	{
+		connectToSocket();
 		if (startsWith(argv[1], "start") || startsWith(argv[1], ""))
 		{
 			//start sniffer
@@ -55,11 +78,44 @@ void passCommandToDaemon(int argc, char **argv)
 		{
 			printHelp();
 		}
+		close(clientSocket);
 	}
 	else
 	{
-		//start sniffer
+		printHelp();
 	}
+}
+
+void connectToSocket()
+{
+	struct sockaddr_un name;
+	char buffer[BUFFER_SIZE];
+
+	printf("Connecting to daemon\n");
+
+	clientSocket = guard(socket(AF_UNIX, SOCK_SEQPACKET, 0), "socket");
+
+	memset(&name, 0, sizeof(struct sockaddr_un)); //compatibility
+
+	name.sun_family = AF_UNIX; //config
+	strncpy(name.sun_path, SOCKET_NAME, sizeof(name.sun_path) - 1);
+	while (connect(clientSocket, (const struct sockaddr *)&name, sizeof(name)) < 0)
+	{
+		printf("Server offline, trying again...\n");
+		sleep(1);
+	}
+	printf("connected to server\n");
+
+	buffer[0] = 42;
+	strcpy(&buffer[1], "hello");
+	guard(write(clientSocket, buffer, BUFFER_SIZE), "write");
+
+	printf("data writen, waiting answer\n");
+
+	guard(read(clientSocket, buffer, BUFFER_SIZE), "read");
+
+	buffer[BUFFER_SIZE - 1] = '\0';
+	printf("Answer = %s\n", buffer);
 }
 
 void printHelp()
@@ -74,6 +130,15 @@ void printHelp()
 	printf("--help               - show this text\n");
 	printf("---------------------------------------------------------------------------------------------------------------------\n");
 }
+
+bool startsWith(const char *pre, const char *str)
+{
+	size_t lenpre = strlen(pre),
+		   lenstr = strlen(str);
+	return lenstr < lenpre ? false : memcmp(pre, str, lenpre) == 0;
+}
+
+//daemon part
 
 volatile bool needStop = false;
 int daemonSocket;
@@ -113,17 +178,6 @@ void doSomeDaemonStuff()
 	closelog();
 }
 
-int guard(int n, char *err)
-{
-	if (n == -1)
-	{
-		syslog(LOG_ERR, "socket error: %s\n", err);
-		perror(err);
-		exit(1);
-	}
-	return (n);
-}
-
 void createSocket()
 {
 	struct sockaddr_un name;
@@ -143,21 +197,22 @@ void createSocket()
 	guard(bind(daemonSocket, (const struct sockaddr *)&name, sizeof(name)), "bind"); //bind
 
 	guard(listen(daemonSocket, 20), "listen"); //listen
-	syslog(LOG_ERR, "Socket created at addr %s\n", SOCKET_NAME);
+	syslog(LOG_NOTICE, "Socket created at addr %s\n", SOCKET_NAME);
 }
 
 void processSocket()
 {
-	static int dataSocket = 0;
-	if (dataSocket <= 0)
+	static int dataSocket = -1;
+	if (dataSocket < 0)
 	{
 		dataSocket = accept(daemonSocket, NULL, NULL);
 	}
-	if (dataSocket > 0) //new input connection detected
+	if (dataSocket >= 0) //new input connection detected
 	{
+		syslog(LOG_NOTICE, "New input connection");
 		char buffer[BUFFER_SIZE];
 
-		if (read(dataSocket, buffer, BUFFER_SIZE) <= 0) //new input packet
+		if (read(dataSocket, buffer, BUFFER_SIZE) < 0) //new input packet
 		{
 			if (errno == EWOULDBLOCK)
 			{
@@ -165,33 +220,26 @@ void processSocket()
 			}
 			else
 			{
-				dataSocket = 0;
+				dataSocket = -1;
 				perror("read");
 			}
 		}
 		else
 		{
-			buffer[BUFFER_SIZE - 1] = 0;
-			syslog(LOG_ERR, "New input data: %d, %s", buffer[0], &buffer[1]);
+			buffer[BUFFER_SIZE - 1] = '\0';
+			syslog(LOG_NOTICE, "New input data: %d, %s", buffer[0], &buffer[1]);
 
 			sprintf(buffer, "%lu", getTotalPacketsNum());
 
-			if (write(dataSocket, buffer, BUFFER_SIZE) <= 0)
+			if (write(dataSocket, buffer, BUFFER_SIZE) < 0)
 			{
 				perror("write");
 			}
 
 			close(dataSocket);
-			dataSocket = 0;
+			dataSocket = -1;
 		}
 	}
-}
-
-bool startsWith(const char *pre, const char *str)
-{
-	size_t lenpre = strlen(pre),
-		   lenstr = strlen(str);
-	return lenstr < lenpre ? false : memcmp(pre, str, lenpre) == 0;
 }
 
 void newPacketCallback(uint32_t ipAddr, char *ifaceName)

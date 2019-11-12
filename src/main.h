@@ -1,7 +1,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define BUFFER_SIZE (MAX_IFACE_LENGTH+2)
+#define BUFFER_SIZE 40
+
+void connectToSocket();
+
 
 void passCommandToDaemon(int argc, char **argv);
 void doSomeDaemonStuff();
