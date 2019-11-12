@@ -72,7 +72,7 @@ static bool safeWriteFile(recordsBufferStruct *bufferStruct)
 	writtenSize = fwrite(bufferStruct->bufferPtr, bufferStruct->bufferSize, 1, bufferStruct->file);
 	if (writtenSize != bufferStruct->bufferSize || fflush(bufferStruct->file) != 0)
 	{
-		syslog(LOG_ERR, "File save error\n");
+		syslog(LOG_ERR, "File save error: %s\n", strerror(errno));
 		return (false);
 	}
 	//todo: write buffer to file

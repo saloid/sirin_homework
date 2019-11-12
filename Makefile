@@ -7,9 +7,9 @@ SRC		:= src
 LIBRARIES	:= -lpcap
 
 ifeq ($(OS),Windows_NT)
-EXECUTABLE	:= ip_sniff.exe
+EXECUTABLE	:= sirin_sniffer.exe
 else
-EXECUTABLE	:= ip_sniff
+EXECUTABLE	:= sirin_sniffer
 endif
 
 SOURCEDIRS	:= $(shell find $(SRC) -type d)

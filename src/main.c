@@ -6,8 +6,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <syslog.h>
+#include <signal.h>
 
-volatile bool errorDetected = false;
+volatile bool needStop = false;
 
 int main(int argc, char **argv)
 {
@@ -15,6 +16,8 @@ int main(int argc, char **argv)
 	(void)argv;
 
 	skeleton_daemon();
+	signal(SIGHUP, signal_handler);  /* catch hangup signal */
+	signal(SIGTERM, signal_handler); /* catch kill signal */
 
 	syslog(LOG_NOTICE, "daemon started\n");
 	if (!initStorage())
@@ -26,7 +29,7 @@ int main(int argc, char **argv)
 	startSniffer(NULL);
 	syslog(LOG_NOTICE, "init finished\n");
 
-	while (!errorDetected)
+	while (!needStop)
 	{
 		snifferLoop();
 		sleep(1);
@@ -35,7 +38,8 @@ int main(int argc, char **argv)
 	stopSniffer();
 	deinitStorage();
 
-	syslog(LOG_NOTICE, "init finished\n");
+	syslog(LOG_NOTICE, "daemon stoped\n");
+	closelog();
 
 	return 0;
 }
@@ -46,6 +50,20 @@ void newPacketCallback(uint32_t ipAddr, char *ifaceName)
 	if (addIpAddr(ipAddr, ifaceName) == false)
 	{
 		syslog(LOG_ERR, "add ip addr failed\n");
-		errorDetected = true;
+		needStop = true;
+	}
+}
+
+void signal_handler(int sig)
+{
+	switch (sig)
+	{
+	case SIGHUP:
+		syslog(LOG_NOTICE, "hangup signal catched");
+		break;
+	case SIGTERM:
+		syslog(LOG_NOTICE, "terminate signal catched");
+		needStop = true;
+		break;
 	}
 }

@@ -4,6 +4,8 @@
         "socket.h": "c",
         "pcap.h": "c",
         "stdbool.h": "c",
-        "cstdlib": "c"
+        "cstdlib": "c",
+        "unistd.h": "c",
+        "stat.h": "c"
     }
 }
