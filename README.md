@@ -6,7 +6,7 @@ How to use:
 1. `make`  
 2. `cd bin`  
 3. `sudo ./sirin_sniffer start`  
-4. Try other command.  
+4. Try other commands  
 Daemon will continue work in background (except `erase` and `stop` commands).  
 If daemon killed (SIGTERM) or stopped by command - it will save all collected data.  
 After start daemon loads saved data (if it exists).
