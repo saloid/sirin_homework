@@ -3,7 +3,7 @@ deps:
 libpcap-dev
 
 How to use:
-1. Compile `make`  
+1. `make`  
 2. `cd bin`  
 3. `sudo ./sirin_sniffer start`  
 4. Try other command.  
